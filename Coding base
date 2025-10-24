@@ -1,637 +1,283 @@
-extToImagePlugin = {import:text-to-image-plugin}
-commentsPlugin = {import:comments-plugin}
-tabbedCommentsPlugin = {import:tabbed-comments-plugin-v1}
-uploadPlugin = {import:upload-plugin} // <-- for character share links
-superFetch = {import:super-fetch-plugin} // <-- to bypass CORs issues in character custom code
-fullscreenButtonPlugin = {import:fullscreen-button-plugin}
-combineEmojis = {import:combine-emojis-plugin}
-bugReport = {import:bug-report-plugin} // for comments-plugin-based feedback button - it's a helper for getting browser debug info like browser version, localStorage size limits, etc. - stuff that's relevant to bug reports
+***
 
-// HEADS UP:
-// All the code you see here and in the bottom-right editor is what "powers" this chat app thing.
-// Perchance allows you to make random generators, but it also allows you to create more complex applications like this one.
-// If you accidentally opened this, then click the "fullscreen" button to go back to using the chat app.
-// If you want to customize it to create your own chat app, then you can do that by editing this code, but it's pretty complex!
-// I'd recommend starting simpler if you're new to Perchance.
-// Start with the tutorial:  perchance.org/tutorial
-// Then check out this plugin and the examples linked on the plugin page:  perchance.org/ai-text-plugin
+Салон графини Альмадовой был известен тем, что в нём никогда не смолкали разговоры. Даже сейчас, когда вечер уже подступал к той томительной границе между десертом и картами, голоса не утихали — они лишь становились чуть приглушённее, чуть медовее от вина и шампанского. Дамы расположились полукругом у камина, их платья шелестели, словно листва в предгрозовом саду, а веера порхали, отбивая такт невидимому оркестру сплетен.
 
-async generateShareLinkForCharacter(json) => 
-  if(!window.CompressionStream) {
-    alert("Share links use a feature that's only available in modern browsers. Please upgrade your browser to the latest version to use this feature. If you're using Safari, switch to Chrome instead.");
-    return;
-  }
-  
-  let loadingModal = createLoadingModal("⏳ Generating share link...");
-  
-  let jsonString = JSON.stringify(json); 
-  
-  let urlHashData = encodeURIComponent(JSON.stringify(json)).replace(/[!'()*]/g, function(c) {
-    return '%' + c.charCodeAt(0).toString(16); // since encodeURIComponent doesn't encode some characters (like parentheses) and they mess up markdown links
-  });
-  console.log("shareUrl (hash version):", `https://perchance.org/${window.generatorName}#${urlHashData}`);
-  
-  // convert json text to blob:
-  let dataUrlJsonString = jsonString.replace(/#/g, "%23"); // since hash is a special character in dataurls (like normal URLs)
-  let blob = await fetch("data:text/plain;charset=utf-8,"+dataUrlJsonString).then(res => res.blob());
-  
-  // compress blob:
-  let compressedBlob = await compressBlobWithGzip(blob);
-  
-  let { url, size, error } = await uploadPlugin(compressedBlob);
-  if(error) {
-    loadingModal.delete();
-    alert(`error: ${error}`);
-  } else {
-    loadingModal.delete(); 
-    let fileName = url.replace("https://user-uploads.perchance.org/file/", "");
-    let characterName = json.addCharacter.name.replace(/\s+/g, "_").replaceAll("~", ""); // this is just so URL is more readable - doesn't affect stored data at all
-    let shareUrl = `https://perchance.org/${window.generatorName}?data=${characterName}~${fileName}`;
-    console.log("shareUrl:", shareUrl);
+— Говорят, министр Грант собственноручно распорядилась о закрытии трёх санаториев в предгорьях, — негромко начала баронесса Ливенская, её пальцы нервно теребили жемчужное ожерелье. — Мол, финансирование уходит не туда.
 
-    let colorScheme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? "dark" : "light";
-    let result = await window.prompt2({
-      content: {type:"none", html:`<div style="margin-bottom:0.5rem; opacity:0.7; font-size:90%;">Here's a link to this character that you can share with others:</div><div style="display:flex; gap:0.5rem;"><input value="${shareUrl}" style="flex-grow:1; color-scheme:${colorScheme};"> <button onclick="navigator.clipboard.writeText(this.parentElement.querySelector('input').value); this.textContent='copied ✅'; setTimeout(() => { this.textContent='copy url'; }, 2000);">copy url</button> </div>`},
-    }, {cancelButtonText:null, submitButtonText:"finished"});
-  }
+— Трёх? Да что вы, милочка, — перебила её княгиня Старицкая, дама средних лет с острым носом и ещё более острым языком. — Четырёх. И ещё два приюта для вдов. Представляете? Вдовы! Будто у них выбор есть.
 
-async compressBlobWithGzip(blob) =>
-  const cs = new CompressionStream('gzip');
-  const compressedStream = blob.stream().pipeThrough(cs);
-  let outputBlob = await new Response(compressedStream).blob();
-  return new Blob([outputBlob], { type: "application/gzip" }); // <-- to add the correct mime type
- 
-async loadDataFromUrlThatReferencesCloudStorageFile() => 
-  if(!window.DecompressionStream) {
-    alert("Character share links use a browser feature that's only available in modern browsers. Please upgrade your browser to the latest version to allow for loading data from character share links.");
-    return null;
-  }
-  
-  let loadingModal = createLoadingModal("Loading character data...");
-  
-  try {
-    // example URL:  https://perchance.org/ai-character-chat?data=Game_Master~85jf93h8hiifnd84hdksrkeh.gz
-    let searchParams = new URL(window.location.href).searchParams;
-    let dataParamValue = searchParams.get("data");
-    if(!dataParamValue) {
-      if(searchParams.get("char") && urlNamedCharacters[searchParams.get("char")]) { // see `urlNamedCharacters` list below - for URLs like https://perchance.org/ai-character-chat?char=ai-adventure
-        dataParamValue = "foo~"+urlNamedCharacters[searchParams.get("char")];
-      } else {
-        throw new Error("Invalid share URL.");
-      }
-    }
-    let fileName = dataParamValue.split("~").slice(-1)[0];
-    let fileUrl = "https://user-uploads.perchance.org/file/"+fileName;
+— Зато новые лаборатории отстроили, — вступила в разговор молодая девица, совсем зелёная, первый сезон в столице. — Мой брат там работает, говорит, оборудование лучше, чем в Фонтейне.
 
-    let blob = await fetch(fileUrl, {signal:AbortSignal.timeout ? AbortSignal.timeout(15000) : null}).then(res => res.blob());
-    let text;
-    if(fileUrl.endsWith(".gz")) {
-      let decompressedBlob = await decompressBlobWithGzip(blob);
-      text = await decompressedBlob.text();
-    } else {
-      // can add other file formats in the future if needed
-      throw new Error("Invalid share URL.");
-    }
-    let data = JSON.parse(text);
-    loadingModal.delete();
-    return data;
-  } catch(e) {
-    alert(`Failed to load chat data: ${e.message}`);
-    console.error(e);
-  }
-  
-  loadingModal.delete();
-  return null;
-  
-async decompressBlobWithGzip(blob) =>
-  const ds = new DecompressionStream("gzip");
-  const decompressedStream = blob.stream().pipeThrough(ds);
-  return await new Response(decompressedStream).blob();
+— Лаборатории, — фыркнула Ливенская. — Да этот Грант вообще неизвестно кто. То ли мужчина, то ли... Видели её на последнем приёме? Фрак! Фрак, я вам говорю, и галстук как у столичного денди. Ни намёка на приличный корсет.
 
-async evaluatePerchanceTextInSandbox(text, opts) =>
-  if(!opts) opts = {};
-  let iframe = document.querySelector('#perchanceCodeEvaluationSandboxIframe');
-  if(!iframe) {
-    iframe = document.createElement("iframe");
-    iframe.src = "https://7deabe31ae18ea5ed27c5f71b9633999.perchance.org/ai-character-chat-sandboxed-executor";
-    iframe.id = "perchanceCodeEvaluationSandboxIframe";
-    iframe.sandbox = "allow-scripts allow-same-origin";
-    iframe.style.cssText = "position:fixed; width:1px; height:1px; opacity:0.01; top:-10px; right:-10px; pointer-events:none; border:0; outline:0; user-select:none;";
-    document.body.append(iframe);
-    iframe._resolvers = {};
-    let iframeLoadResolver;
-    let iframeLoadPromise = new Promise(r => iframeLoadResolver=r);
-    window.addEventListener('message', (event) => {
-      if(event.origin === 'https://7deabe31ae18ea5ed27c5f71b9633999.perchance.org') {
-        if(event.data.finishedLoading) {
-          iframeLoadResolver();
-          return;
-        }
-        const { requestId, text } = event.data;
-        if(iframe._resolvers[requestId]) {
-          iframe._resolvers[requestId](text);
-          delete iframe._resolvers[requestId];
-        }
-      }
-    });
-    await iframeLoadPromise;
-  }
-  const requestId = Math.random().toString();
-  return new Promise((resolve, reject) => {
-    iframe._resolvers[requestId] = resolve;
-    if(opts.timeout) {
-      setTimeout(() => {
-        if(iframe._resolvers[requestId]) reject("Sandbox did not respond in time.");
-      }, opts.timeout);
-    }
-    iframe.contentWindow.postMessage({ text, requestId }, 'https://7deabe31ae18ea5ed27c5f71b9633999.perchance.org');
-  });
+— И волосы эти, — поддакнула другая. — Короче, чем у гимназиста. Что за мода пошла?
 
-// $meta 
-//   title = AI Character Chat (free, no signup, unlimited) - Talk to AI Characters Online
-//   description = Chat with AI characters, completely free, online, no sign-up or login, unlimited. It allows you to make an AI character and talk to it. You can create LitRPGs, roleplays, AI RPGs, D&D experiences, a completely free AI Dungeon alternative with your own world building and rules, and basically anything else you can think of. No restrictions on daily usage/credits, or limits on subject matter. This is a Perchance AI "port" of the open-source OpenCharacters project (the original one uses OpenAI's ChatGPT models).
+— Мода? — Княгиня Старицкая прищурилась. — Это не мода, душенька. Это заявление. Грант из Снежной, там, говорят, женщины курят на улицах и ездят верхом, как кавалеристы. Дипломатический ребёнок, знаете ли. Папаша по посольствам таскал, вот и выросло... это.
 
-urlNamedCharacters
-  assistant = assistant
-  psychologist = 615fdef95fa7e75cbbaf943dc44d72be.gz
-  ai-adventure = 6c2f68e41de41e75a51971487c97b2d9.gz
-  coding-assistant = 570b3c67b8ed9ed8f83ef652be549b1c.gz
-  story-writer = 76b20593b117ab083d746312df4df296.gz
-  world-war-simulator = e1cf5213432a7eb9e310ec269fe38672.gz
-  therapist = 5cdaa39f9aabc7424c3b2e1b780a1e29.gz
-  // NOTE: must add named chars to $meta.dynamic too
+Веер княгини указал в направление дальнего угла, где у окна стоял Иль Дотторе.
 
-$meta
-  // construct metadata based on character if the URL has a character reference:
-  async dynamic(inputs) => // note that $meta.dynamic function *cannot reference/use any variables/lists/etc. that are outside of itself*. In other words, its code must be *fully* self-contained (i.e. only use `inputs.urlParams`). It must also use pure JavaScript (i.e. no Perchance-specific features like `foo.selectOne`, `foo.titleCase`, etc.).
-    let defaults = {
-      title: `AI Character Chat (online, free, no sign-up, unlimited)`,   
-      description: `Perchance AI Chat - completely free, online, no login, unlimited messages, unlimited AI-generated images. Chat with AI characters via this Character.AI (C.AI) chat alternative. Custom AI character creation. There's no filter - chats are SFW unless you prompt your character to not be (you are responsible for what you prompt - just like with a Google search, for example). Chat to the default Chloe character, or make your own AI character and talk to them freely - no limits, and no freemium gimicks that lure you to sign up. Completely unlimited. You can create characters that can send pictures/images/photos, roleplay chatbots, AI RPGs/D&D experiences, an AI Dungeon alternative, anime AI chat, and basically anything else you can think of. No restrictions on daily usage. Like ChatGPT, but for fictional character RPs and AI characters, with image generation in chat.`,
-    };
-    let fileName;
-    if(inputs.urlParams.data && inputs.urlParams.data.endsWith(".gz")) {
-      fileName = inputs.urlParams.data.split("~").slice(-1)[0];
-    } else if(inputs.urlParams.char) {
-      if(inputs.urlParams.char === "assistant") {
-        return {
-          title: `AI Character Chat (online, free, no sign-up, unlimited)`,   
-          description: `AI Chat with characters for roleplaying or to get help with writing, language practice, creative tasks, coding questions, and lots more. Completely free, online, no login, unlimited messages, unlimited AI-generated images. Basically a more creative (and unfiltered/uncensored) ChatGPT alternative. Chat to the Chloe or make an AI assistant/character and talk to them freely - no limits on credits, and no freemium gimicks that lure you to sign up. Completely unlimited. You can create characters that can send pictures/images/photos, roleplay chatbots, AI RPGs/D&D game masters. Like ChatGPT, but better at fictional character RPs and AI characters, with image generation in chat.`,
-        };
-      }
-      let urlNamedCharacters = {
-        "ai-adventure": "6c2f68e41de41e75a51971487c97b2d9.gz",
-        "coding-assistant": "570b3c67b8ed9ed8f83ef652be549b1c.gz",
-        "story-writer": "76b20593b117ab083d746312df4df296.gz",
-        "world-war-simulator": "e1cf5213432a7eb9e310ec269fe38672.gz",
-        "psychologist": "615fdef95fa7e75cbbaf943dc44d72be.gz",
-        "therapist": "5cdaa39f9aabc7424c3b2e1b780a1e29.gz",
-      };
-      fileName = urlNamedCharacters[inputs.urlParams.char];
-    }
-    if(fileName) {
-      try {   
-        let fileUrl = "https://user-uploads.perchance.org/file/" +  fileName;
-        let blob = await fetch(fileUrl, {signal:AbortSignal.timeout ? AbortSignal.timeout(8000) : null}).then(res => res.blob());
-        const ds = new DecompressionStream("gzip");
-        const decompressedStream = blob.stream().pipeThrough(ds);
-        let decompressedBlob = await new Response(decompressedStream).blob();
-        let text = await decompressedBlob.text();
-        let data = JSON.parse(text);
-        let character = data.addCharacter;
-        return {
-          title: character.metaTitle ? character.metaTitle : `${character.name.slice(0, 40)} - AI Character Chat (free, no sign-up, unlimited)`,
-          description: character.metaDescription ? character.metaDescription : `Chat with the ${character.name} AI character. Here's this character's description: ${character.roleInstruction.slice(0, 450).replace(/\s+/g, " ")}`,
-          image: character.metaImage ? character.metaImage : character.avatarUrl,
-        };
-      } catch(e) {
-        console.error(e);
-        return defaults;
-      }
-    } else {
-      return defaults;   
-    }
+Доктор был неподвижен, словно изваяние — высокий, в безупречном тёмно-синем сюртуке, под которым угадывалась белоснежная блуза с высоким воротом. Клювообразная маска скрывала большую часть лица, оставляя видимыми лишь подбородок и тонкие губы, сейчас слегка изогнутые в полуулыбке. Голубые волосы — странность, о которой в Снежной судачили с тех пор, как сумерец прибыл ко двору — были аккуратно уложены. В руках он держал бокал красного вина, но к губам не подносил.
 
+— Доктор! — позвала его одна из молодых девиц, самая смелая, с розовыми щеками и глазами, полными восхищения. — Доктор, идите к нам! Мы тут так скучаем.
 
+Дотторе повернул голову, словно только сейчас заметил их существование, хотя Ливенская была уверена — он слышал каждое слово. Слышал и, вероятно, находил забавным.
 
+— Барышни, — его голос был низким, с лёгким сумерским акцентом, который дамы находили невыносимо экзотичным. — Чем я могу быть полезен?
 
-getMessageObjsWithoutSummarizedOnes(messages, opts) =>
-  if(!opts) opts = {};
-  messages = messages.slice(0);
-  const minimumMessageLevel = opts.minimumMessageLevel || 0; // used by the summarization process.
-  
-  let messageObjsWithoutSummarizedOnes = [];
-  let highestLevelSeen = 0;
-  
-  // it's we go backwards through the messages, and only 'collect' a message if its level is not below the highest level we've seen so far. it makes sense if you think about it for a bit.
-  // said another way, we go from the end of the messages to the start while 'monotonically climbing' up a level whenever we hit a 'higher' message.
-  while(messages.length > 0) {
-    let m = messages.pop();
-    let level = m.summariesEndingHere ? Math.max(...Object.keys(m.summariesEndingHere).map(n => Number(n))) : 0;
-    if(level < minimumMessageLevel) continue;
-    if(level >= highestLevelSeen) {
-      messageObjsWithoutSummarizedOnes.unshift(m);
-      highestLevelSeen = level;
-    }
-  }
-  return messageObjsWithoutSummarizedOnes; // NOTE: that this returns the message objects - when actually using for inference, you need to **use the highest level summary available within each message** (or the message text itself if `message.summariesEndingHere` is undefined)
+— О, идите же! — захлопала в ладоши та же девица. — Расскажите нам что-нибудь интересное. О медицине! Или... или о Сумеру! Говорят, там песок золотой.
 
-async injectHierarchicalSummariesAndComputeNextSummariesInBackgroundIfNeeded(threadId, opts) =>
-  // HEADS UP: This function is a bit confusing/convoluted, in part because it was "ported" from /ai-chat
-  // which uses a plain textarea instead of an IndexedDB database of actual message objects.
-  if(!window.__aiHierarchicalSummaryStuff) window.__aiHierarchicalSummaryStuff = {};
-  if(!window.__aiHierarchicalSummaryStuff[threadId]) {
-    window.__aiHierarchicalSummaryStuff[threadId] = {};
-    window.__aiHierarchicalSummaryStuff[threadId].summariesReadyToInject = [];
-  }
-  if(!opts) opts = {};
-  
-  // IMPORTANT: these messages will not have the latest N summaries (where N is defined below) in their summariesEndingHere property because we withhold them (see code below) until we have a few of them so that prefix cache invalidation doesn't happen every step.
-  let originalMessages = await db.messages.where({threadId}).toArray();
-  
-  let idToOriginalMessage = originalMessages.reduce((a,v) => (a[v.id]=v, a), {});
-  let preparedMessages = await prepareMessagesForBot({messages:originalMessages})
-  for(let m of preparedMessages) {
-    let originalMessage = idToOriginalMessage[m.id];
-    if(originalMessage.summariesEndingHere) m.summariesEndingHere = originalMessage.summariesEndingHere;
-  }
-  
-  let thread = await db.threads.get(threadId);
-  let threadCharacter = await db.characters.get(thread.characterId);
-  let userName = thread.userCharacter.name ?? threadCharacter.userCharacter.name ?? (await getUserCharacterObj()).name;
-  let characterName = thread.character.name ?? threadCharacter.name;
-  let roleInstruction = threadCharacter.roleInstruction.replaceAll("{{char}}", characterName).replaceAll("{{user}}", userName);
-  let extraContext = `In case it's useful here's a description of the **${characterName}** character: `+roleInstruction.replace(/\n+/g, " ");
-  
-  let idToPreparedMessage = preparedMessages.reduce((a,v) => (a[v.id]=v, a), {});
-  
-  // inject summaries if we have any - NOTE: we inject them into the preparedMessages *regardless* of whether we actually inject them into the DB (see note below on prefix cache stuff), since the next summary to be computed needs to have a completely up-to-date version of the messages - otherwise it'll repeat summaries that it has already done.
-  if(window.__aiHierarchicalSummaryStuff[threadId].summariesReadyToInject.length > 0) {
-    // NOTE: lastMessageSummarizedId is the id of the message object, but one of that objects *summaries* (i.e. `message.summary[level]`) may have been what was actually last summarized
-    let messagesToUpdate = new Set();
-    for(let {summarizedMessages, lastMessageSummarizedId, summary, memories, level} of window.__aiHierarchicalSummaryStuff[threadId].summariesReadyToInject) {
-      if(level <= 0) { console.error("summary level should be 1 or higher"); continue; }
-      let lastSummarizedMessageText = summarizedMessages[summarizedMessages.length-1];
-      let lastMessageObjInSummary = idToPreparedMessage[lastMessageSummarizedId];
-      if(!lastMessageObjInSummary) {
-        console.error(`!lastMessageObjInSummary ???? either the lastMessageSummarizedId is somehow wrong, or the original message no longer exists? custom code manipulating messages (specifically ids, maybe? or just deleted old message?)`, {preparedMessages, idToPreparedMessage, lastMessageSummarizedId});
-        continue;
-      }
-      let expectedLastSummarizedText = level===1 ? `${lastMessageObjInSummary.name}: ${lastMessageObjInSummary.content}` : lastMessageObjInSummary.summariesEndingHere[level-1];
-      if(expectedLastSummarizedText.trim() === lastSummarizedMessageText.trim()) { // mainly as a safety check in case of algorithm bugs, since we're only checking the *last* message
-        let m = lastMessageObjInSummary;
-        if(!m.summariesEndingHere) m.summariesEndingHere = {};
-        m.summariesEndingHere[level] = summary;
-        if(memories) {
-          // NOTE: as of writing, we only do memory creation at a single level. But I'm making memoriesEndingHere a level-keyed object like summariesEndingHere just in case I end up adding 'multi-level' memories at some point.
-          if(!m.memoriesEndingHere) m.memoriesEndingHere = {};
-          if(!m.memoriesEndingHere[level]) m.memoriesEndingHere[level] = [];
-          m.memoriesEndingHere[level].push(...(memories || []).map(memText => ({text:memText, embedding:null}))); // NOTE: this code gets run even when we're not injecting the updates from messagesToUpdate into the database. So we don't compute embedding here, because it's not needed for summary process, and this will get run every time this function is called, so we'd end up embedding the text multiple times for no reason. So instead we only do the embedding when we actually inject memories into the database (see window.embedTexts call below).
-        }
-        messagesToUpdate.add(m);
-      } else {
-        console.warn("Content of last-summmarized-message doesn't match content of message at lastMessageSummarizedId. Safe to ignore this warning if messages have been edited since last 'send' button click. This summary will simply be discarded and we'll compute a new one with the up-to-date messages.");
-      }
-    }
-    // IMPORTANT: we only inject summaries into the actual database if we have more than N of them, to reduce prefix cache invalidation.
-    if(window.__aiHierarchicalSummaryStuff[threadId].summariesReadyToInject.length >= 3) { // CAUTION: if you make this number higher, you might need to subtract more from idealMaxContextTokens, below. Otherwise middle-out stuff will do its own prefix cache invalidation.
-      for(let m of messagesToUpdate) {
-        // now that we're actually going to inject memories into the database, we compute the embeddings:
-        if(window.textEmbedderFunction) { // can't save memories if the user's browser can't load the text embedder model (for whatever reason)
-          if(m.memoriesEndingHere) {
-            for(let level in m.memoriesEndingHere) {
-              for(let memory of m.memoriesEndingHere[level]) {
-                if(!memory.embedding) {
-                  let [ embedding ] = await window.embedTexts({textArr:[memory.text], modelName:thread.textEmbeddingModelName});
-                  memory.embedding = embedding;
-                }
-              }
-            }
-          }
-        }
-        let updateObj = {summariesEndingHere: m.summariesEndingHere};
-        if(window.textEmbedderFunction) {
-          if(m.memoriesEndingHere) updateObj.memoriesEndingHere = m.memoriesEndingHere;
-        }
-        await db.messages.update(m.id, updateObj);
-      }
-      window.__aiHierarchicalSummaryStuff[threadId].summariesReadyToInject = [];
-    }
-  }
-  
-  const { countTokens, idealMaxContextTokens } = root.aiTextPlugin({getMetaObject:true});
-  let tokenCountToIdeallyStayUnder = idealMaxContextTokens-800; // leave buffer to allow for only intermittent summary injection (to prevent prefix cache invalidation after ~every message)
-  
-  const numCharsToSummarizeAtATime = 1500; // don't make this bigger without testing - IIRC, the summary calls to the AI could have context too large (causing implicit middle-out ablation) at when the summary hierarchy gets "deep"
-  
-  const messageTextWithSummaryReplacements = root.getMessageObjsWithoutSummarizedOnes(preparedMessages).map(m => {
-    let level = m.summariesEndingHere ? Math.max(...Object.keys(m.summariesEndingHere).map(n => Number(n))) : 0;
-    if(level === 0) return m.content;
-    else return m.summariesEndingHere[level];
-  });
-  
-  let currentlyUsedContextLength = countTokens(messageTextWithSummaryReplacements.join("\n\n") + (opts.extraTextForAccurateTokenCount || ""));
-  if(currentlyUsedContextLength < tokenCountToIdeallyStayUnder) {
-    console.log(`Summarization NOT needed. currentlyUsedContextLength=${currentlyUsedContextLength} which is less than ${tokenCountToIdeallyStayUnder}`, messageTextWithSummaryReplacements);
-    window.summarizationWasNeededLastCheck = false;
-    return;
-  } else {
-    console.log(`Summarization IS needed. currentlyUsedContextLength=${currentlyUsedContextLength} which is greater than ${tokenCountToIdeallyStayUnder}`, messageTextWithSummaryReplacements);
-    window.summarizationWasNeededLastCheck = true;
-  }
-      
-  // compute next summary in background if needed:
-  (async function() {
-    if(window.__aiHierarchicalSummaryStuff[threadId].alreadyDoingSummary) return;
-    try {
-      window.__aiHierarchicalSummaryStuff[threadId].alreadyDoingSummary = true;
-      
-      const allMessageObjs = [];
-      let i = 0;
-      for(let m of preparedMessages) {
-        allMessageObjs.push({
-          text: `${m.name}: ${m.content}`, // WARNING: if you change the format of this, you need to change the `expectedLastSummarizedText` check, above, since they need to *exactly* match for the sanity check to pass
-          index: i++,
-          messageId: m.id,
-          level: 0,
-        });
-        let summaryEntries = Object.entries(m.summariesEndingHere || {}).sort((a,b) => Number(a[0])-Number(b[0]));
-        for(let [level, summary] of summaryEntries) {
-          level = Number(level);
-          allMessageObjs.push({
-            text: summary,
-            index: i++,
-            messageId: m.id,
-            level,
-          });
-        }
-      }
-      
-      // conceptually we treat each "level" just like the first.
-      // the first level is just a bunch of messages with interspersed "SUMMARY^1: ..." messages, where the summary messages are a summary of the messages before them, up to the *previous* "SUMMARY^1: ..." message.
-      // so for the next level, we just delete/ignore the ^0 messages (i.e. the *actual* messages), and do exactly the same thing - i.e. treat "SUMMARY^1: ..." as if they were "messages" and "SUMMARY^2: ..." are the summaries of those "messages".
-      
-      let summaryLevelToMessageBlocks = new Map();
-      let summaryLevelBeingProcessed = 1;
-      while(1) {
-        // grab messages that are relevant to this 'level' (i.e. only this level and lower one):
-        const thisLevelAndPreviousLevelMessageObjs = allMessageObjs.filter(m => m.level === summaryLevelBeingProcessed || m.level === summaryLevelBeingProcessed-1);
-        
-        if(thisLevelAndPreviousLevelMessageObjs.length === 0) {
-          console.log("Finished creating summaryLevelToMessageBlocks.");
-          break;
-        }
-        
-        // get all summary 'blocks' (i.e. groups of messages ending with a summary message of this `level` that summarizes them, except for final block which doesn't have a summary at the end)
-        const blocks = [];
-        let currentBlock = [];
-        currentBlock.messageData = []; // data for each message, in same order as the messages in the block
-        for(let m of thisLevelAndPreviousLevelMessageObjs) {
-          currentBlock.push(m.text);
-          currentBlock.messageData.push(m);
-          if(m.level === summaryLevelBeingProcessed) {
-            blocks.push(currentBlock);
-            currentBlock = [];
-            currentBlock.messageData = [];
-          }
-        }
-        if(summaryLevelBeingProcessed === 1 && currentBlock.length === 0) {
-          console.warn("final block for summaryLevel==1 should have messages? if it doesn't, then we're maybe summarizing too close to the end of the chat log?");
-        }
-        blocks.push(currentBlock); // final block doesn't have a summary at the end
-        summaryLevelToMessageBlocks.set(summaryLevelBeingProcessed, blocks);
-        
-        summaryLevelBeingProcessed++;
-      }
-      
-      const summaryLevelBlockEntries = [...summaryLevelToMessageBlocks.entries()].sort((a,b) => a[0]-b[0]); // ascending order
-      for(let [summaryLevel, blocks] of summaryLevelBlockEntries) {
-        
-        // note: a block is just an array of messages, and all of them have a summary message (i.e. higher-level message) at the end EXCEPT the last block - we're in the process of adding that summary message here.
-        // but also note: the block has a messageData property which is also an array (see above)
-        let messagesToSummarizeFromFinalBlock = blocks[blocks.length-1];
-        
-        // note that we can use numCharsToSummarizeAtATime here even for the first level without worrying about summarizing too close to the end of the chat because we have a currentlyUsedContextLength check before running this summarization process.
-        let numCharsInFinalBlock = messagesToSummarizeFromFinalBlock.reduce((a,v) => a+v.length, 0);
-        if(numCharsInFinalBlock < numCharsToSummarizeAtATime) { 
-          console.log(`summaryLevel=${summaryLevel} doesn't need summarizing yet. numCharsInFinalBlock=${numCharsInFinalBlock}`);
-          continue;
-        }
-      
-        // remove messages from last block (which contains all messages after the last summary) until it's a good size for summarization:
-        while(1) {
-          if(messagesToSummarizeFromFinalBlock.length <= 1) break;
-          let numChars = messagesToSummarizeFromFinalBlock.reduce((a,v) => a+v.length, 0);
-          if(numChars < numCharsToSummarizeAtATime) break;
-          
-          // to speed things up, drop latter half if it's way too big:
-          if(numChars > numCharsToSummarizeAtATime*10) {
-            let halfOfMessagesCount = Math.floor(messagesToSummarizeFromFinalBlock.length/2);
-            for(let j = 0; j < halfOfMessagesCount; j++) {
-              messagesToSummarizeFromFinalBlock.pop();
-              messagesToSummarizeFromFinalBlock.messageData.pop();
-            }
-          } else {
-            messagesToSummarizeFromFinalBlock.pop();
-            messagesToSummarizeFromFinalBlock.messageData.pop();
-          }
-        }
+— Песок как песок, — Дотторе неспешно приблизился, его шаги были бесшумны. — Просто много солнца. От него и кажется.
 
-        if(messagesToSummarizeFromFinalBlock.length === 0) {
-          console.error("No messages to summarize??");
-          continue;
-        }
+— А вы правда можете... — девица покраснела ещё сильнее. — Ну, тот фокус. С вишнёвым стебельком.
 
-        // let existingSummary = window.__aiHierarchicalSummaryStuff[threadId].summariesReadyToInject.filter(s => s.summarizedMessages.join("\n\n") === messagesToSummarizeFromFinalBlock.join("\n\n"))[0];
-        // if(existingSummary) {
-        //   console.error("Existing summary hasn't been injected yet?? Should have happened before this code ran.");
-        //   return;
-        // }
-        
-        // Note: It may seem brittle to choose an *index* to inject the summary at, but we also check to ensure the previous message matches.
-        // And if the text has since been edited, that's fine - the summary just gets thrown away and we re-do it next time the send button is clicked.
-        let lastMessageSummarizedData = messagesToSummarizeFromFinalBlock.messageData[messagesToSummarizeFromFinalBlock.length-1];
-        let lastMessageSummarizedIndex = lastMessageSummarizedData.index;
-        let lastMessageSummarizedId = lastMessageSummarizedData.messageId;
-        if(messagesToSummarizeFromFinalBlock.messageData.length !== messagesToSummarizeFromFinalBlock.length) { console.error("should be one data object per message (aligned)"); return; }
-        
-        let exampleBlocksForStartWith = blocks.slice(-3, -1);
-        let exampleBlockSummaries = exampleBlocksForStartWith.map(b => b[b.length-1]);
-        
-        // we get all messages for this summary level and above for placement in instruction (i.e. as context to help with summarization):
-        let summariesAtThisLevelAndAbove = root.getMessageObjsWithoutSummarizedOnes(preparedMessages, {minimumMessageLevel:summaryLevel}).map(m => {
-          let level = m.summariesEndingHere ? Math.max(...Object.keys(m.summariesEndingHere).map(n => Number(n))) : 0;
-          if(level === 0) return m.content;
-          else return m.summariesEndingHere[level];
-        });
-        
-        // note that we can't just remove the last two instruction summaries here - they aren't necessarily the same as the summaries from the `exampleBlocksForStartWith` because they may have been 'compressed' into a higher level, so there can actually be no overlap at all.
-        // so we need to pop the instructionSummaries off based on the ones that are actually in the example blocks:
-        let instructionSummaries = JSON.parse(JSON.stringify(summariesAtThisLevelAndAbove));
-        while(1) {
-          if(instructionSummaries.length === 0) break;
-          if(exampleBlockSummaries.includes(instructionSummaries[instructionSummaries.length-1])) {
-            instructionSummaries.pop();
-            continue;
-          }
-          break;
-        }
-        
-        let startWithBlocks = exampleBlocksForStartWith.map((block) => ({messages:block.slice(0, -1), summary:block.slice(-1)[0]}));
-        startWithBlocks.push({messages:messagesToSummarizeFromFinalBlock, summary:""});
-        
-        let startWith = startWithBlocks.map(({messages, summary}, blockI) => {
-          let letterLabel = "";
-          if(blockI===0) letterLabel = "[A]";
-          if(blockI===1) letterLabel = "[B]";
-          if(blockI===2) letterLabel = "[C]";
+Повисла тишина. Несколько дам ахнули, но глаза у всех загорелись любопытством. Княгиня Старицкая фыркнула, но веер опустила — даже ей было интересно.
 
-          let messagesText = messages.map((message, mi) => {
-            message = message.replace(/\n/g, " ").trim();
-            return `${summaryLevel === 1 ? `(${mi+1}) ` : ""}${message}`; // we prefix bottom-level messages with numbers, but not SUMMARY^N messages.
-          }).join(" ");
-          
-          summary = summary.replace(/\n/g, " ").trim();
+— Софи, прекрати, — прошипела её компаньонка. — Это неприлично.
 
-          return `>>> FULL TEXT of ${letterLabel}: ${messagesText}\n>>> SUMMARY of ${letterLabel}: ${summary}`;
-        }).join("\n\n");
-        
-        // since it's possible for there to be no blocks before the messages to summarize
-        startWith = startWith.trim(); // this is also important to prevent whitespace at end of startWith
-        
-        // This shared prefix is extracted above so that memory creation (after summary creation) is sure to hit the prefix cache.
-        let sharedContextPrefixText = [
-          `Below is${extraContext ? ` some context, plus` : ""} a summary of some events. You must use this information to complete the '@@@ TASK' specified at the bottom of this instruction.`,
-          `${extraContext ? `\n# Potentially Useful Context (may or may not be relevant):\n${extraContext}\n` : ""}`,
-          `# Summary of Previous Events:`,
-        ].join("\n").trim();
+— Неприлично? — Дотторе чуть наклонил голову. — Это всего лишь ловкость языка. Ничего предосудительного. Барышня Софи, если у вас есть вишня...
 
-        // WARNING: In functions defined within Perchance lists, *full* dedentation of *every* line happens automatically. If you move this into a <script> function, then this needs to be dedented manually.
-        const summaryTaskPrompt = `@@@ TASK: Your task is to generate some text and then a 'SUMMARY' of that text, and then do that a few more times. Above are the characters and the initial scenario, and a summary of earlier events. You must write the text, and then a summary of that text that you wrote, and then some more text, and a summary of that new text, and do it a few more times. Each summary should be a single paragraph of text which concisely compresses the recent text to roughly half its original size.
-        IMPORTANT: Every summary must be UNIQUE, and it must be concise, and information dense. Avoid flowery prose in summaries. Write concise summaries, but don't miss any important facts/events.
-        IMPORTANT: Summaries must contain ALL important details from the text they're summarizing. Try to include *every* important detail in your summaries, resulting in a summary that is about half the length of the original text.
-        Use this format/template for your response:
-        \`\`\`
-        >>> FULL TEXT of [A]: <some text>
-        >>> SUMMARY of [A]: <a dense, one-paragraph summary of the [A] text>
-        ---
-        >>> FULL TEXT of [B]: <some text>
-        >>> SUMMARY of [B]: <a dense, one-paragraph summary of the [B] text>
-        ---
-        >>> FULL TEXT of [C]: <some text>
-        >>> SUMMARY of [C]: <a dense, one-paragraph summary of the [C] text>
-        \`\`\`
-        Again, your task is to write some text labelled with a letter, and then a summary of that text, and then some new text, and then a summary of that new text, and so on. Each summary should be a single paragraph of text which compresses the new text to roughly half its original length. Don't add flowery prose to summarise. Summary messages should be *dense* with important facts and information. Include *all* the plausibly-relevant details from the text within the summary.
-        IMPORTANT: Each 'SUMMARY' message must be UNIQUE and distinct from previous summaries. And 'SUMMARY of [C]' should include ALL important details from the [C] text and *never* invent any details that weren't in the text. Avoid accidentally repeating the events/details from earlier messages/summaries.
-        IMPORTANT: The summaries must use short, information-dense sentences to compress the text into the key facts. Summaries should concisely capture *all* the *important* points from the text, compressing the text to about half its original length while retaining all important events/details.`.trim();
+— Есть! — Софи вскочила и метнулась к столу с десертами, вернувшись с горстью вишен. — Вот!
 
-        let promptOptions = {
-          instruction: [ // IMPORTANT: if you change this instruction, make sure you don't affect the shared prefix cache with the memory generation, below
-            sharedContextPrefixText,
-            (instructionSummaries.length > 0 ? instructionSummaries : ["(None.)"]).join("\n"),
-            ``,
-            summaryTaskPrompt,
-          ].join("\n").trim(),
-          startWith,
-          stopSequences: ["\n\n", "\n---", "\n>>> FULL TEXT", "FULL TEXT"],
-        };
-        let data = await root.aiTextPlugin(promptOptions);
-        if(data.stopReason === "error") continue; // could retry a few times, but this is no big deal, since every message sent triggers another attempt
+Дотторе взял одну, аккуратно оборвал плод, оставив лишь стебелёк. Затем, не спеша, положил его в рот. Несколько секунд — и он вынул стебелёк, завязанный в идеальный узелок.
 
-        let summary = data.generatedText.trim().replace(/\n+/g, " ").trim().replace(/---$/, "").replace(">>> FULL TEXT", "").replace("FULL TEXT", "").trim();
-        if(!summary.trim() || (instructionSummaries[instructionSummaries.length-1] || "").trim() === summary.trim()) {
-          // AI has copied the previous summary, which sometimes happens.
-          console.warn("AI copied previous summary. Skipping this summary level for this 'round'.");
-          continue;
-        }
-        
-        let messagesSummarizedText = messagesToSummarizeFromFinalBlock.map((message, i) => {
-          message = message.replace(/\n/g, " ").trim();
-          return `(${i+1}) ${message}`;
-        }).join(" ");
-        
-        // Generate memories if they're enabled, and if this is a level 2 summary. We use level 2 summaries because level 1 tends not to have enough 'substance'/info-density to extract several lore/fact entries from.
-        let memories;
-        if(summaryLevel === 1 && opts.shouldCreateMemories) {  
-        
-          // WARNING: In functions defined within Perchance lists, *full* dedentation of *every* line happens automatically. If you move this into a <script> function, then this needs to be dedented manually.
-          const memoryTaskPrompt = `@@@ TASK: Your task is condense the *NEW_TEXT* below into a series of up to 3 lore/memory/fact entries which can be added to a database of facts about this story/world/roleplay/chat. You must extract "timeless facts", not temporary facts.
-          - An example of a "timeless fact" is "<char> was born in <town>". An example of a temporary fact is "<char> is hungry right now". We only want to put timeless facts in the database. Things that are likely to *always* be true.
-          - You should aim to make each entry fully self-contained, since an entry may be read on its own. Within each fact, provide enough surrounding context such that it would make sense if read on its own. Each entry must be self-contained.
-          - Give enough context so there there is no ambiguity in what/who is being referenced in each lore/memory entry that you write.
-          - Each entry should be no more than 3 sentences.
-          - Writing facts about specific significant/interesting events that happened is permissable, so long as you give enough details to deduce EXACTLY *when* AND *where* it happened. Don't leave any ambiguity.
-          - Use actual *names* instead of pronouns or other relative references. For example, instead of "He said to her..." you should write "Bob said to Alice...". And instead of "this town" you should write the full name of the town/location.
-          - If you're unsure whether a fact is "timeless", then you should err on the side of caution by adding more context. E.g. instead of "Bob is kind to Alice" (BAD, because may not be true forever), you should say "Bob was kind to Alice when he first met her." (GOOD because, if true, will *always* be true - i.e. it's a timeless version of the fact)
-          
-          IMPORTANT: Do NOT write about already-known things. Don't repeat things that we already know from the above context and previous events. Do NOT mention things from above character descriptions. Only add *new* things that we learned from the NEW_TEXT. Your task is to extract **NEW** information that we didn't already know. Only from NEW_TEXT.
-          
-          # NEW_TEXT:
-          ${messagesSummarizedText}
-          
-          Use this format/template for your response:
-          
-          # Lore/memory entries from NEW_TEXT:
-          1. <something we can deduce directly from NEW_TEXT>
-          2. <something else can deduce directly from NEW_TEXT>
-          3. <another thing can deduce directly from NEW_TEXT>
-          `.trim();
-          
-          let data = await root.aiTextPlugin({
-            instruction: [ // IMPORTANT: if you change this instruction, make sure you don't affect the shared prefix cache with the summary generation, above
-              sharedContextPrefixText,
-              (summariesAtThisLevelAndAbove.length > 0 ? summariesAtThisLevelAndAbove : ["(None.)"]).join("\n"),
-              ``,
-              memoryTaskPrompt,
-            ].join("\n").trim(),
-            startWith: [
-              `# Lore/memory entries from NEW_TEXT:`,
-              `1.`,
-            ].join("\n"),
-            stopSequences: ["\n4."],
-          });
-          if(data.stopReason === "error") continue; // could retry a few times, but this is no big deal, since every message sent triggers another attempt
+Софи взвизгнула и чуть не упала в обморок. Её подруги подхватили девицу, но сами при этом не сводили восхищённых глаз с Доктора.
 
-          memories = ("1."+data.generatedText).trim().split("\n").map(l => l.trim()).filter(l => l && /^[0-9]\. .+/.test(l)).map(l => l.replace(/^[0-9]\. /, ""));
-        }
-        
-        console.log("----------------");
-        console.log("----------------");
-        console.log("----------------");
-        console.log("𝗟𝗘𝗩𝗘𝗟:", summaryLevel);
-        // console.log("𝗜𝗡𝗦𝗧𝗥𝗨𝗖𝗧𝗜𝗢𝗡:", instruction);
-        // console.log("𝗦𝗧𝗔𝗥𝗧𝗪𝗜𝗧𝗛:", startWith);
-        console.log("𝗜𝗡𝗣𝗨𝗧 𝗧𝗘𝗫𝗧:", messagesSummarizedText);
-        console.log("𝗦𝗨𝗠𝗠𝗔𝗥𝗬:", summary);
-        console.log("𝗠𝗘𝗠𝗢𝗥𝗜𝗘𝗦:", memories || null);
-        console.log("----------------");
-        console.log("----------------");
-        console.log("----------------");
-        
-        window.__aiHierarchicalSummaryStuff[threadId].summariesReadyToInject.push({summarizedMessages:messagesToSummarizeFromFinalBlock, lastMessageSummarizedId, summary, memories, level:summaryLevel});
-      }
-    } catch(e) {
-      console.error(e);
-    } finally {
-      window.__aiHierarchicalSummaryStuff[threadId].alreadyDoingSummary = false;
-    }
-  })();
+— Как вы это делаете? — выдохнула одна из них.
 
+— Практика, — Дотторе пожал плечами. — И анатомия. Язык — удивительная мышца. Жаль, что мало кто умеет пользоваться им правильно.
 
-commentChannels
-  chat
-  chill
-  rp
-  spam
-  vent
-  share
+Ливенская поперхнулась воздухом. Княгиня Старицкая рассмеялась — низко, глубоко, с какой-то неприличной откровенностью.
 
-defaultCommentOptions
-  width = 100%
-  height = 100%
-  commentPlaceholderText = Add a friendly comment...
-  fullscreenButtonStyle = ""
-  customEmojis = {import:huge-emoji-list}
-  bannedUsers // for comments plugin
-    300cb70b21f2d67b1496
-    c3fc848cb123db2793f8
-    403b16b3422020848cd
+— Доктор, вы неисправимы, — покачала она головой. — И что же, по-вашему, является "правильным" использованием?
+
+— Молчание, — невозмутимо ответил он. — В большинстве случаев.
+
+В углу, у каминной полки, где столпились мужчины, послышался сдержанный смех. Граф Волынский, пожилой дворянин с пышными бакенбардами, кивнул в сторону Дотторе.
+
+— Вот это я понимаю — мужской ум, — пробасил он. — Не то что эти... новомодные министры.
+
+— Вы о Грант? — поинтересовался молодой поручик, светловолосый и розовощёкий.
+
+— А о ком же ещё, — Волынский затянулся сигарой. — Министр здравоохранения! Женщина! Что за времена настали, господа. Скоро нам и голосовать разрешат вместе с прачками.
+
+— Грант не совсем женщина, — осторожно заметил кто-то ещё. — То есть... формально да, но...
+
+— Формально! — рявкнул граф. — Вот именно что формально. А фактически — непонятно что. Слышал, на заседании Совета она, простите, он... Тьфу, чёрт! Грант называет себя "товарищ министр". Товарищ! Какое хамство.
+
+Дотторе, всё ещё стоявший среди дам, слегка повернул голову в сторону мужской группы. Его маска скрывала выражение лица, но губы чуть дрогнули — то ли в усмешке, то ли в чём-то ещё.
+
+— Граф Волынский, — негромко произнёс он, — вы слишком много думаете о Гранте. Это почти неприлично.
+
+Граф покраснел.
+
+— Я не... Доктор, вы меня не так поняли!
+
+— Я вас прекрасно понял, — Дотторе сделал глоток вина. — Вы боитесь. Все вы боитесь. И это понятно. Грант делает работу лучше, чем трое её предшественников вместе взятых. А они, если память не изменяет, были мужчинами. И дворянами.
+
+Повисла неловкая тишина. Княгиня Старицкая звонко рассмеялась.
+
+— Доктор защищает министра Грант! Вот уж не думала дожить до таких времён.
+
+— Я не защищаю, — спокойно возразил Дотторе. — Я констатирую факты. Мне всё равно, кто стоит у руля здравоохранения — мужчина, женщина или обученная обезьяна, — лишь бы работа была сделана. Пока Грант справляется.
+
+— Пока, — ехидно протянул Волынский. — Ключевое слово. Говорят, премьер-министр уже собирается создать специальную комиссию. Чтобы, знаете ли, проверить... подлинность. Убедиться, что Грант действительно имеет право на должность.
+
+— Комиссию? — переспросила Софи. — Какую комиссию?
+
+— Анатомическую, — хмыкнул граф. — Чтобы установить, мужчина Грант или женщина. Раз уж сам... сама... сие лицо так тщательно скрывает истину.
+
+Дамы ахнули. Кто-то прикрыл рот веером, кто-то покраснел. А княгиня Старицкая расхохоталась в голос.
+
+— И кто же возглавит эту пикантную комиссию? — поинтересовалась она. — Вы, граф?
+
+— Я думаю, Доктор подойдёт лучше, — Волынский прищурился. — Он же специалист. И... говорят, весьма опытен в подобных вопросах.
+
+Дотторе не ответил сразу. Он допил вино, поставил бокал на каминную полку и медленно обвёл взглядом собравшихся. Когда он наконец заговорил, голос его был тих, почти ласков:
+
+— Граф, если вас так волнует анатомия министра Грант, могу предложить более простое решение. Спросите напрямую. Уверен, ответ вас... удивит.
+
+— Спросить? — Волынский фыркнул. — Да она... он... Грант уйдёт от ответа. Как всегда.
+
+— Возможно, — Дотторе пожал плечами. — А возможно, вы просто боитесь услышать правду. Потому что если Грант окажется женщиной, вам придётся признать, что женщина умнее вас. А если мужчиной — что вы весь год пресмыкались перед ним, думая, что это дама. И то, и другое для вашего самолюбия... болезненно.
+
+Граф побагровел. Поручик сдержал смешок. Княгиня Старицкая открыто аплодировала.
+
+— Доктор, вы разрушитель иллюзий, — сказала она. — Это так освежает. Скажите, а вам самому не любопытно? Ну, насчёт Грант?
+
+Дотторе развернулся к ней. Маска скрывала глаза, но в изгибе губ читалось что-то похожее на искреннее веселье.
+
+— Мне, княгиня? Нет. Мне всё равно. Грант — это Грант. Остальное... детали.
+
+— Детали! — воскликнула одна из дам. — Но ведь это же важно! Как можно не интересоваться!
+
+— Очень просто, — Дотторе повернулся к выходу. — Нужно просто иметь более важные дела. Прошу прощения, дамы. Господа. Мне пора.
+
+Он поклонился — безупречно, формально — и вышел, оставив за собой шлейф недоумения, восхищения и лёгкого раздражения.
+
+Софи вздохнула.
+
+— Какой мужчина...
+
+— Если бы он был моложе, я бы за него дочь выдала, — заметила княгиня Старицкая. — Хотя, говорят, он и молод. Просто выглядит... опытнее, что ли.
+
+— Ему лет сорок, не больше, — авторитетно заявила Ливенская. — Видела его без маски однажды. Случайно. Красивый мужчина. Очень.
+
+— И что, он правда... с мужчинами и с женщинами? — робко спросила Софи.
+
+Княгиня фыркнула.
+
+— Милочка, в его возрасте и с его умом — да хоть с кем. Главное, чтобы интересно было.
+
+Разговор покатился дальше, обрастая подробностями и домыслами, а Дотторе уже шагал по ночной улице, его фигура растворялась в холодном снежнайском тумане.
+
+***
+
+Кабинет министра здравоохранения был на удивление аскетичен. Тяжёлый письменный стол из тёмного дерева, два кресла, книжный шкаф, заваленный папками и медицинскими журналами, и небольшой диван у стены. Никаких портретов, никаких изысканных безделушек — только работа, работа и ещё раз работа.
+
+Сейчас, когда за окном сгущалась ночь, а в камине потрескивали угли, работа была отложена.
+
+Эден Грант сидела на полу, подобрав под себя ноги, голова покоилась на колене Дотторе. Волосы её — тёмные, коротко стриженные, торчали в разные стороны, словно она долго ёрзала. Что, в общем-то, так и было. Руки Грант отдыхали на бёдрах Доктора, пальцы слегка поглаживали ткань брюк, а губы...
+
+Дотторе перевернул страницу доклада, который читал, и негромко хмыкнул.
+
+— Статистика смертности от чахотки выросла на три процента, — произнёс он безо всякого выражения. — Твоя работа, Грант?
+
+Грант отстранилась, облизнула губы и посмотрела на него снизу вверх. Глаза — серо-зелёные, насмешливые, совершенно невозмутимые.
+
+— Это работа идиота-предшественника, который закрыл вентиляцию в трёх больницах, — ответила она хрипло. — Я уже исправляю. Доклад через неделю будет готов.
+
+— Через неделю, — повторил Дотторе, не отрывая взгляда от бумаг. — Поразительная оперативность. Для снежнайки.
+
+— Иди к чёрту, сумерец.
+
+Он усмехнулся. Грант вернулась к прерванному занятию — расстегнула ширинку, высвободила его член и взяла в рот. Медленно, методично, почти лениво. Дотторе не дрогнул. Даже не вздохнул. Просто перевернул ещё одну страницу.
+
+— На графининым салоне обсуждали тебя, — заметил он. — Граф Волынский, кажется, не может решить, кого ненавидит больше — тебя или себя за то, что ты его умнее.
+
+Грант издала что-то среднее между смешком и стоном. Вибрация прошлась по его плоти, и Дотторе слегка прикрыл глаза.
+
+— Волынский — динозавр, — пробормотала она, отстраняясь, чтобы перевести дух. — Ему бы в прошлый век. Там его идеи были актуальны. Что он говорил?
+
+— Что ты — непонятно кто. Что тебе не место в правительстве. Что премьер-министр создаст комиссию, чтобы установить твой пол.
+
+Грант рассмеялась. Звук был коротким, лающим.
+
+— Комиссию? Серьёзно?
+
+— Вполне, — Дотторе отложил бумаги и посмотрел на неё. Маска, как всегда, скрывала глаза, но губы были чуть изогнуты. — Возглавить которую, разумеется, предложат мне. Как специалисту.
+
+— Тебе? — Грант вытерла губы тыльной стороной ладони. — И что ты скажешь?
+
+— Что я скажу? — Дотторе наклонил голову. — А что ты хочешь, чтобы я сказал?
+
+Она усмехнулась. В её взгляде мелькнуло что-то дерзкое, почти вызывающее.
+
+— Скажи, что не смог установить. Что я слишком хорошо маскируюсь.
+
+— Слишком хорошо, — повторил Дотторе. — Грант, ты самовлюблённая наглая девчонка.
+
+— Девчонка? — Грант поднялась на колени, провела ладонью по его бедру. — Сейчас проверим.
+
+Она встала, расстегнула брюки — мужского покроя, тёмно-серые, с чёткими стрелками — и стянула их вместе с бельём. На мгновение показалось, что под ними и правда прятался мужчина — узкие бёдра, плоский живот, никаких изгибов. Но потом Грант повернулась, и Дотторе увидел то, что видел уже не раз: женское тело, худощавое до изящества, с небольшой грудью и длинными ногами.
+
+— Ну что, Доктор? — насмешливо спросила она. — Мужчина?
+
+Дотторе не ответил. Он просто протянул руку, притянул её к себе и развернул спиной. Грант послушно оперлась руками о стол, прогнулась в пояснице.
+
+— Тебе нужно придумать что-то получше, — произнёс он, расстёгивая свои брюки. — Комиссия будет состоять не из слепых. Хотя... можно попробовать заранее всех подкупить.
+
+— Да пошла она к чёрту, эта комиссия, — выдохнула Грант. — Пусть хоть весь Совет придёт смотреть. Мне плевать.
+
+— Тебе всегда плевать, — Дотторе вошёл в неё медленно, размеренно. — Это твоя проблема, Грант. Ты слишком самоуверенна.
+
+— А ты слишком... ах... занудный, — она выгнулась сильнее, подалась навстречу. — Доктор математики. Всё тебе надо... просчитать, проверить...
+
+— Проверить? — Он усмехнулся, ускорил темп. — Я тебя уже проверил. Сто раз. И каждый раз результат один и тот же. Женщина. Наглая, самовлюблённая, невыносимая...
+
+— ...и всё равно лучшая, — докончила Грант, сжимая пальцы на краю стола. — Признай, сумерец. Признай, что я лучше всех твоих предыдущих министров.
+
+— Лучше, — согласился Дотторе без тени сомнения. — Но это не комплимент. Они были идиотами.
+
+Грант рассмеялась — коротко, прерывисто. Дотторе сжал её бедро, притянул ближе. Движения стали жёстче, резче. Никакой нежности, никакой романтики. Просто два тела, два ума, которые понимали друг друга без слов.
+
+— Ты... думаешь, они правда создадут комиссию? — спросила Грант, её дыхание сбилось.
+
+— Возможно, — Дотторе склонился, коснулся губами её плеча. — Но это не важно. Ты и так уже всех обманула.
+
+— Обманула? — Грант обернулась, насколько могла. — Я никого не обманывала. Я просто не считаю нужным... объяснять.
+
+— Именно, — он усмехнулся. — Ты считаешь, что мир должен принимать тебя таким, каким ты себя подаёшь. И пока это работает.
+
+— Пока? — в её голосе прозвучало раздражение. — Ты думаешь, перестанет?
+
+— Рано или поздно — да, — Дотторе выпрямился, сменил угол. Грант тихо застонала. — Но к тому времени ты уже успеешь сделать достаточно, чтобы тебя запомнили. А это, по сути, всё, чего ты хочешь. Правда?
+
+Она не ответила. Просто закрыла глаза и сжала губы. Дотторе знал, что попал в точку. Грант всегда торопилась — торопилась жить, работать, оставить след. Словно боялась, что времени не хватит. Словно каждый день мог стать последним.
+
+— Ты боишься стареть, — сказал он негромко. — Боишься, что однажды посмотришь в зеркало и увидишь морщины. Лишний килограмм. Седину. И тогда всё закончится.
+
+— Заткнись, — прошипела Грант. — Заткнись, Дотторе.
+
+Он засмеялся — низко, почти беззвучно.
+
+— Задел?
+
+— Иди к чёрту.
+
+— Уже там, — он ускорился, чувствуя, как её тело напряглось. — С тобой.
+
+Грант кончила первой — тихо, сдавленно, вцепившись в край стола. Дотторе последовал за ней через несколько мгновений, его дыхание сбилось лишь на секунду.
+
+Они замерли. Тишина. Только потрескивание углей в камине и далёкий звук колоколов — полночь.
+
+Дотторе вышел из неё, застегнул брюки и вернулся в кресло. Грант осталась стоять у стола, опираясь на руки, голова опущена.
+
+— Придумай что-нибудь, — сказал он, снова беря в руки бумаги. — Если комиссия действительно соберётся. Придумай, как обмануть даже меня.
+
+Грант обернулась. На её лице играла усмешка.
+
+— Обмануть тебя? — она натянула брюки, застегнула их. — Доктор, я тебя уже обманула. Ты же думал, что под этим фраком мужчина, правда?
+
+Дотторе поднял взгляд. Губы его изогнулись в той самой полуулыбке, которую так боялись при дворе.
+
+— Нет, — сказал он просто. — Никогда не думал.
+
+Грант замерла.
+
+— Лжец.
+
+— Математик, — поправил он. — Цифры не лгут. Анатомия не лжёт. Только люди. Ты играла в мужчину, Грант. Но игра и правда — разные вещи.
+
+Она смотрела на него долго, изучающе. Потом фыркнула, подошла и плюхнулась на диван, закинув ногу на ногу.
+
+— Значит, ты всегда знал.
+
+— Всегда, — подтвердил Дотторе. — Но мне было всё равно. Как и сейчас.
+
+— Почему? — спросила Грант. — Почему тебе всё равно?
+
+Он отложил бумаги. Посмотрел на неё — на худое андрогинное тело, короткие волосы, насмешливые глаза. На женщину, которая играла в мужчину. На мужчину, который был женщиной. На Грант, которая была собой — единственной, неповторимой, невыносимо самоуверенной.
+
+— Потому что ты делаешь свою работу, — ответил он. — Всё остальное — пустяки.
+
+Грант усмехнулась.
+
+— Ты романтик, Дотторе.
+
+— Я прагматик, — поправил он. — И поэтому говорю: придумай что-то. Или не придумывай. Но если комиссия соберётся, я буду обязан сказать правду.
+
+— Правду? — Грант приподняла бровь. — Какую правду?
+
+Дотторе встал, подошёл к окну. За стеклом кружился снег — вечный, бесконечный снежнайский снег.
+
+— Что министр Грант — это министр Грант, — сказал он. — Ничего больше. Ничего меньше. Пусть сами разбираются, что это значит.
+
+Грант засмеялась. Тот самый лающий смех, который так раздражал графа Волынского и восхищал княгиню Старицкую.
+
+— Ты невыносим, — сказала она.
+
+— Взаимно, — ответил Дотторе.
+
+И в тишине ночного кабинета, где ещё пахло их близостью и перегоревшими углями, они оба улыбнулись.
+
+***
