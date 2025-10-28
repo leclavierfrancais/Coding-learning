@@ -1,0 +1,11 @@
+{
+    "display_name": "Anamnesis morbi",
+    "loading_order": 10,
+    "requires": [],
+    "optional": [],
+    "js": "index.js",
+    "css": "style.css",
+    "author": "Anonymous",
+    "version": "1.0.0",
+    "homePage": "https://github.com/yourusername/rpg-grunge-companion-sillytavern"
+}
